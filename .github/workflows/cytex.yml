@@ -5,6 +5,12 @@ on:
     branches:
       - "master"
       - "main"
+  workflow_dispatch:
+    inputs:
+      changedFiles:
+        description: "Comma-separated changed files for incremental scan"
+        required: false
+        default: ""
 jobs:
   analyze:
     name: Code analysis
@@ -29,17 +35,34 @@ jobs:
             https://github.com/cisco-ai-defense/aibom/releases/download/1.0.0rc2/aibom_catalog-1.0.0rc2.duckdb
           echo "b1165384a646094aa6a4762d676f285c1c68b6d7f9367c90a129b529904a3268  $HOME/.aibom/catalogs/aibom_catalog-1.0.0rc2.duckdb" | sha256sum -c -
 
+      - name: Prepare scan directory
+        env:
+          CHANGED_FILES: ${{ github.event.inputs.changedFiles }}
+        run: |
+          SCAN_DIR=.
+          if [ -n "$CHANGED_FILES" ]; then
+            SCAN_DIR=$(mktemp -d)
+            echo "$CHANGED_FILES" | tr ',' '\n' | while IFS= read -r path; do
+              if [ -f "$path" ]; then
+                mkdir -p "$SCAN_DIR/$(dirname "$path")"
+                cp "$path" "$SCAN_DIR/$path"
+              fi
+            done
+            echo "Incremental scan: $(find "$SCAN_DIR" -type f | wc -l) changed file(s)"
+          fi
+          echo "SCAN_DIR=$SCAN_DIR" >> "$GITHUB_ENV"
+
       - name: Run Grype
-        run: grype dir:./ -o json
+        run: grype dir:"$SCAN_DIR" -o json
 
       - name: Run Semgrep
-        run: semgrep --config=auto ./ --json
+        run: semgrep --config=auto "$SCAN_DIR" --json
 
       - name: Run Cisco AIBOM
         env:
           AIBOM_LLM_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: >-
-          cisco-aibom analyze ./
+          cisco-aibom analyze "$SCAN_DIR"
           -o cyclonedx
           -O aibom-report.cdx.json
           --llm-model llama-3.3-70b-versatile

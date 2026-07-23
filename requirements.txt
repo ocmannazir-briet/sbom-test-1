@@ -1,0 +1,26 @@
+# cloudapps-new runtime deps (Phase 1 — Amazon S3 connector)
+# Detection endpoint client + core
+requests>=2.31
+python-dotenv>=1.0
+
+# Datastore + broker
+pymongo[encryption]>=4.6   # includes client-side field-level encryption (pymongocrypt)
+pika>=1.3
+
+# AWS (S3 connector)
+boto3>=1.34
+
+# File text extraction (DLP)
+PyPDF2>=3.0
+python-docx>=1.1
+python-pptx>=0.6
+pandas>=2.0
+openpyxl>=3.1          # xlsx engine for pandas
+chardet>=5.2
+
+# Optional archive formats (extractors skip gracefully if absent)
+rarfile>=4.1
+py7zr>=0.21
+
+# Note: CSPM uses the external `steampipe` binary + steampipe-mod-aws-compliance,
+# which are installed on the host, not via pip.
